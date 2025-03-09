@@ -1,17 +1,30 @@
 <?php
-require 'services/auth.php';
 require 'config/db.php';
+require 'notification.php';
+require 'services/auth.php';
+$error = ""; // Initialisation de l'erreur
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $name = $_POST['name'];
-    $email = $_POST['email'];
-    $position = $_POST['position']; // Récupère la valeur du menu déroulant
+    $name     = trim($_POST['name']);
+    $email    = trim($_POST['email']);
+    $position = trim($_POST['position']);
 
     if (!empty($name) && !empty($email) && !empty($position)) {
-        $stmt = $pdo->prepare("INSERT INTO employees (name, email, position) VALUES (?, ?, ?)");
-        $stmt->execute([$name, $email, $position]);
-        header("Location: read.php");
-        exit();
+        try {
+            $stmt = $pdo->prepare("INSERT INTO employees (name, email, position) VALUES (?, ?, ?)");
+            if ($stmt->execute([$name, $email, $position])) {
+                // Envoi de la notification par e-mail après insertion réussie
+                // Ici, 'create' indique l'action, 'employé' le type d'entité
+                sendNotification('create', 'employe', $name, $email);
+                
+                header("Location: read.php");
+                exit();
+            } else {
+                $error = "Erreur lors de l'ajout de l'employé.";
+            }
+        } catch (PDOException $e) {
+            $error = "Erreur SQL : " . $e->getMessage();
+        }
     } else {
         $error = "Tous les champs sont obligatoires !";
     }
@@ -28,7 +41,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body class="bg-light">
     <div class="container mt-5">
         <h2 class="text-primary text-center">➕ Ajouter un Employé</h2>
-        <?php if (isset($error)) echo "<div class='alert alert-danger'>$error</div>"; ?>
+        <?php if (!empty($error)) echo "<div class='alert alert-danger'>$error</div>"; ?>
         
         <form method="POST" class="bg-white p-4 rounded shadow">
             <div class="mb-3">
@@ -54,3 +67,4 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
 </body>
 </html>
+
